@@ -91,7 +91,8 @@ pygame.init()
 
 W, H = 960, 640
 if __name__ == "__main__":
-    SCREEN = pygame.display.set_mode((W, H))
+    if "-f" in sys.argv: SCREEN = pygame.display.set_mode((W, H), FULLSCREEN)
+    else: SCREEN = pygame.display.set_mode((W, H))
     pygame.display.set_caption("Red Pants Adventure")
     HEL32 = pygame.font.SysFont("Helvetica", 32)
     CLOCK = pygame.time.Clock()
