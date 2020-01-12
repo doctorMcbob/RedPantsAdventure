@@ -95,6 +95,7 @@ if __name__ == "__main__":
     else: SCREEN = pygame.display.set_mode((W, H))
     pygame.display.set_caption("Red Pants Adventure")
     HEL32 = pygame.font.SysFont("Helvetica", 32)
+    HEL64 = pygame.font.SysFont("Helvetica", 64)
     CLOCK = pygame.time.Clock()
     SCREEN.fill((255, 255, 255))
     SCREEN.blit(HEL32.render("Loading...", 0, (0, 0, 0)), (10, 10))
@@ -247,6 +248,8 @@ _ENEMIES = []
 DOOR = (0, 0)
 dframe = 0
 
+IGT = 0
+
 with open("levels/hub") as f: hublvl = eval(f.read())
 LEVELS = []
 with open("levels/tutorial") as f: LEVELS.append(eval(f.read()))
@@ -277,7 +280,7 @@ while True and __name__ == "__main__":
     # update counters/clock
     counter += 1
     dframe = (dframe + 1) % 12
-    CLOCK.tick(30)
+    IGT += CLOCK.tick(30)
     # draw update screen
     adjust_scroller()
     SCREEN.blit(get_screen(), (0, 0))
@@ -484,6 +487,8 @@ while True and __name__ == "__main__":
                 if n >= 0: n -= 10
                 SCREEN.blit(get_screen(), (0, 0))
                 SCREEN.blit(endcard, (0, n))
+                pygame.draw.rect(SCREEN, (200, 200, 200), Rect((380, n + 530), (256, 104)))
+                SCREEN.blit(HEL64.render(str(IGT // 60000) +":"+ ("0" + str(IGT // 1000 % 60))[-2:], 0, (0, 0, 0)), (400, n + 550))
                 pygame.display.update()
                 for e in pygame.event.get():
                     if e.type == QUIT or e.type == KEYDOWN and e.key == K_ESCAPE: quit()
