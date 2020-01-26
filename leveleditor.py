@@ -68,7 +68,8 @@ def make_plat():
         _X, _Y = None, None
     else: _X, _Y = p.X, p.Y
 
-def make_hat(): LEVEL['hats'].append([(p.X, p.Y), 'baseball'])
+hats = ["baseball", "sombraro", "propeller"]
+def make_hat(i=0): LEVEL['hats'].append([(p.X, p.Y), hats[i]])
 def make_spike(): LEVEL['spikes'].append([(p.X, p.Y), 0])
 def make_spring(): LEVEL['springs'].append([(p.X, p.Y+16), 0, 20, 0])
 def make_flag(): LEVEL['flags'].append((p.X, p.Y))

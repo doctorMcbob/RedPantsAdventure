@@ -26,7 +26,7 @@ to do list
   [x] crouch
   [x] walljump
 [x] platforms
-   [] BONUS handle loading
+  [x] BONUS handle loading
 [x] scrolling
 [x] backgrounds
 [x] mechanics  - good times had here
@@ -46,10 +46,10 @@ to do list
      [x] snake
      [x] ghost
   [x] cheese (collectables)
-[/] HUD 
-[/] level editor !!!
+[x] HUD 
+[x] level editor !!!
   [x] finalize level architecture
-  [~] loading levels into game
+  [x] loading levels into game
   [x] create items
      [x] platforms
      [x] spikes
@@ -73,7 +73,7 @@ to do list
 ----------------------- day 5 
    [x] l3
    [x] l4
-   [] final rush
+   [x] final rush
 [] cutscenes??
 """
 import pygame
@@ -262,16 +262,23 @@ while True:
         break
     n += 1
 with open("levels/fin") as f: LEVELS.append(eval(f.read()))
-    
-try:
-    with open("levels/"+sys.argv[-1]) as f:
-        load_level(eval(f.read()))
-        hub = False
-except IOError:
+
+if __name__ == "__main__":
+    try:
+        with open("levels/"+sys.argv[-1]) as f:
+            load_level(eval(f.read()))
+            hub = False
+    except IOError:
+        load_level(hublvl)
+        hub = True
+else:
     load_level(hublvl)
     hub = True
 
-while True and __name__ == "__main__":
+def advance_frame(input_get=pygame.event.get):
+    global PLATFORMS, HATS, SPIKES, SPRINGS, ENEMIES, _ENEMIES, FLAGS, CHEESE, BACK, SPAWN
+    global  X, Y, x_vel, y_vel, DOOR, HAT, STATE, CROUCH, mov, hub, DIR
+    global counter, dframe, IGT, endcard
     plats = []
     allplats = []
     for pos, dim, idx in PLATFORMS:
@@ -290,23 +297,23 @@ while True and __name__ == "__main__":
     # evaluate input
     jmp = 0
     door = 0
-    for e in pygame.event.get():
+    for e in input_get():
         if e.type == QUIT or e.type == KEYDOWN and e.key == K_ESCAPE: quit()
         if e.type == KEYDOWN:
-            if e.key == K_LEFT: mov += -1
-            if e.key == K_RIGHT: mov += 1
-            if e.key == K_DOWN: CROUCH += 1
+            if e.key == K_LEFT: mov = max(mov - 1, -1)
+            if e.key == K_RIGHT: mov = min(mov + 1, 1)
+            if e.key == K_DOWN: CROUCH = min(CROUCH+1, 1)
             if e.key == K_SPACE: jmp += 1
             if e.key == K_UP: door = True
         if e.type == KEYUP:
-            if e.key == K_LEFT: mov -= -1
-            if e.key == K_RIGHT: mov -= 1
-            if e.key == K_DOWN: CROUCH -= 1
+            if e.key == K_LEFT: mov = min(mov+1, 1)
+            if e.key == K_RIGHT: mov = max(mov-1, -1)
+            if e.key == K_DOWN: CROUCH = max(CROUCH-1, 0)
 
     # change state, update movement
     JUMP = _JUMP * 2 if HAT == "baseball" else _JUMP
     if STATE == "dmg":
-        if counter < 10: continue
+        if counter < 10: return
         STATE = "stand"
         X, Y = SPAWN
         x_vel, y_vel = 0, 0
@@ -421,7 +428,7 @@ while True and __name__ == "__main__":
     checklist = plats
     if hitbox.collidelist(checklist) != -1:
         STATE = "dmg"
-        continue
+        return
     if x_vel:
         while hitbox.move(x_vel, 0).collidelist(checklist) != -1:
             if STATE.startswith("jump"): STATE = "wall"
@@ -541,3 +548,5 @@ while True and __name__ == "__main__":
     X += x_vel
     Y += y_vel
                 
+while True and __name__ == "__main__":
+    advance_frame()
