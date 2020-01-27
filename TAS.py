@@ -74,11 +74,11 @@ if len(sys.argv) > 1:
 else:
     TAS = []
 
-def flush():
+def flush(n=500):
     global TAS, STATES
-    STATES = STATES[:-500]
+    STATES = STATES[:0-n]
     set_state(STATES[-1])
-    read_tas(TAS[-500:])
+    read_tas(TAS[0-n:])
 
 def get_tas_menu():
     surf = pygame.Surface((W, 16))
@@ -113,6 +113,7 @@ while __name__ == "__main__":
                 SCREEN.blit(p.get_screen(), (0, 0))
                 SCREEN.blit(p.get_HUD(), (0, 0))
             if e.key == K_PERIOD: flush()
+            if e.key == K_COMMA: flush(100)
             if e.key in keymap:
                 idx = -1
                 for i, evnt in enumerate(EVENTS):
