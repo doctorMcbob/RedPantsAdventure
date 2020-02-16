@@ -81,6 +81,7 @@ from pygame import Surface
 from pygame.rect import Rect
 from pygame.locals import *
 from pygame.transform import flip, rotate
+from pygame.mixer import Sound
 
 from copy import deepcopy
 import sys
@@ -120,6 +121,15 @@ def isnear(pos, dim=False):
 sprites = load_spritesheet("img/redpantsadventure_spritesheet.png", sheet_data, (1, 255, 1))
 endcard = pygame.image.load("img/endcard.png").convert()
 endcard.set_colorkey((1, 255, 1))
+
+sounds = {
+    "jump": Sound("oggs/jmp.ogg"),
+    "death": Sound("oggs/death.ogg"),
+    "door": Sound("oggs/door.ogg"),
+    "spring": Sound("oggs/spring.ogg"),
+    "throw": Sound("oggs/throw.ogg"),
+    "get": Sound("oggs/get.ogg"),
+}
 
 def get_HUD():
     surf = Surface((32*5, 32))
@@ -313,6 +323,10 @@ def advance_frame(input_get=pygame.event.get):
     # change state, update movement
     JUMP = _JUMP * 2 if HAT == "baseball" else _JUMP
     if STATE == "dmg":
+        if counter == 1:
+            sounds["death"].stop()
+            sounds["death"].play()
+
         if counter < 10: return
         STATE = "stand"
         X, Y = SPAWN
@@ -320,6 +334,8 @@ def advance_frame(input_get=pygame.event.get):
         HAT = None
         ENEMIES = deepcopy(_ENEMIES)
     elif jmp and (STATE in ["stand", "run0", "run1", "slide", "wall"] or HAT == "propeller"):
+        sounds["jump"].stop()
+        sounds["jump"].play()
         if HAT == "propeller": y_vel = JUMP
         if STATE == "wall":
             y_vel = JUMP
@@ -378,6 +394,9 @@ def advance_frame(input_get=pygame.event.get):
                 if f == 0: d = 0 if X > pos[0] else 1
                 if c >= 8 and f == 0: f = 1
                 elif c >= 30 and f == 1:
+                    sounds["throw"].stop()
+                    sounds["throw"].play()
+ 
                     f = 2
                     ENEMIES.append( [pos, 'bone', d, 0, 0] )
                 elif c > 40: f, c = 0, 0
@@ -469,6 +488,10 @@ def advance_frame(input_get=pygame.event.get):
     checklist = [Rect(pos, (48, 48)) for pos, d, s, f in SPRINGS]
     i = hitbox.collidelist(checklist)
     if i != -1:
+        if SPRINGS[i][3] != 10:
+            sounds["spring"].stop()
+            sounds["spring"].play()
+
         SPRINGS[i][3] = 10
         if SPRINGS[i][1] == 0: y_vel = 0 - SPRINGS[i][2]
         elif SPRINGS[i][1] == 2: y_vel = SPRINGS[i][2]
@@ -485,6 +508,9 @@ def advance_frame(input_get=pygame.event.get):
         else: checklist.append(Rect(pos, (32, 32)))
     i = hitbox.collidelist(checklist)
     if i != -1:
+        sounds["get"].stop()
+        sounds["get"].play()
+
         if not CHEESE[i][1] == 3: INV.append(CHEESE.pop(i))
         else:
             n = H
@@ -517,6 +543,9 @@ def advance_frame(input_get=pygame.event.get):
         di = hitbox.collidelist(doorlist)
     # enter door
     if door and (hitbox.colliderect(Rect(DOOR, (64, 64))) or (hub and di != -1 and len(INV)>=needs[di] )):
+        sounds["door"].stop()
+        sounds["door"].play()
+
         n = 2
         if not hub: X, Y = DOOR[0] + 16, DOOR[1]
         adjust_scroller()
