@@ -101,7 +101,7 @@ if __name__ == "__main__":
     SCREEN.fill((255, 255, 255))
     SCREEN.blit(HEL32.render("Loading...", 0, (0, 0, 0)), (10, 10))
     pygame.display.update()
-    
+    pygame.mixer.init(44100, -16, 1, 1024)
 
 def load_spritesheet(filename, data, colorkey=None):
     """data should be dict with key: ((x, y), (w, h)), assumes w, h are 32, 32"""
@@ -117,10 +117,13 @@ def load_spritesheet(filename, data, colorkey=None):
 
 def isnear(pos, dim=False):
     return (abs(pos[0] - X) < W // 2 + 64 and abs(pos[1] - Y) < H // 2 + 64) or (dim and Rect(pos, (dim[0]*32, dim[1]*32)).colliderect(Rect((X - W//2, Y - H//2), (W+64, H+64))))
-        
+
 sprites = load_spritesheet("img/redpantsadventure_spritesheet.png", sheet_data, (1, 255, 1))
 endcard = pygame.image.load("img/endcard.png").convert()
 endcard.set_colorkey((1, 255, 1))
+titlecard = pygame.image.load("img/title.png").convert()
+titlecard.set_colorkey((1, 255, 1))
+
 
 sounds = {
     "jump": Sound("oggs/jmp.ogg"),
@@ -130,7 +133,13 @@ sounds = {
     "throw": Sound("oggs/throw.ogg"),
     "get": Sound("oggs/get.ogg"),
 }
-
+songs = [
+    "bluelevel",
+    "redlevel",
+    "hubworld",
+    "woodlevel",
+    "greenlevel",
+]
 def get_HUD():
     surf = Surface((32*5, 32))
     surf.fill((200, 200, 200))
@@ -154,6 +163,22 @@ def drawn_platform(dim, idx):
     surf.set_colorkey((1, 255, 1))
     return surf
 
+def drawn_pause_menu(idx):
+    surf = drawn_platform((26, 16), 8)
+    surf.blit(HEL64.render(""",.+*"*+. PAUSE .+*"*+.,""", 0, (0, 0, 0)), (64, 64))
+    
+    text = [
+        "Take me back to the game!",
+        "Can we fix the music volume?? say... " + str(MUSICVOL) + "?",
+        "Lets set the FX Volume to " + str(FXVOL),
+        "I quit! Get me outta here!"
+    ]
+    for i, s in enumerate(text):
+        col = (0, 250, 0) if idx == i else (0, 0, 0)
+        surf.blit(HEL32.render(s, 0, col), (64, 160 + 48*i))
+        
+    return surf
+
 def scroll(pos): return pos[0]+SCROLLER[0], pos[1]+SCROLLER[1]
 def adjust_scroller():
     SCROLLER[0] = 0 - X + (W/2) - 16
@@ -168,12 +193,16 @@ def get_screen():
 
     if DOOR and isnear(DOOR): surf.blit(sprites['door'+str(dframe//4)], scroll(DOOR))
     if hub:
+        surf.blit(titlecard, scroll((128, -128)))
+        
         for i in range(len(LEVELS)):
-            pygame.draw.rect(surf, (193, 145, 61 ), Rect(scroll((256+(i*256), -16)), (64, 64)))
-            surf.blit(sprites['door'+str(dframe//4)], scroll((256+(i*256), 64)))
-            surf.blit(HEL32.render(str(needs[i]), 0, (0, 0, 0)), scroll((256+(i*256)+16, -16)))
-            surf.blit(HEL32.render(str(len(LEVELS[i]["cheese"])), 0, (100, 0, 0)), scroll((256+(i*256)+16, +16)))
+            pygame.draw.rect(surf, (193, 145, 61), Rect(scroll((256+(i*256), 16)), (64, 48)))
 
+            surf.blit(sprites['lock'], scroll((256+(i*256), 32)))
+            surf.blit(HEL32.render(str(needs[i]), 0, (0, 0, 0)), scroll((256+(i*256)+32, 32)))
+            surf.blit(sprites['door'+str(dframe//4)], scroll((256+(i*256), 64)))
+
+            
     for pos, dim, idx in PLATFORMS:
         if isnear(pos, dim): surf.blit(drawn_platform(dim, idx), scroll(pos))
     for pos, hat in HATS:
@@ -207,7 +236,13 @@ def get_screen():
 
 def load_level(level):
     global PLATFORMS, HATS, SPIKES, SPRINGS, ENEMIES, _ENEMIES, FLAGS, CHEESE, BACK, SPAWN
-    global  X, Y, x_vel, y_vel, DOOR, HAT
+    global  X, Y, x_vel, y_vel, DOOR, HAT, hub
+    song = songs[level['back']]
+    if song == "hubworld" and not hub: song = "finallevel"
+
+    pygame.mixer.music.load("oggs/" + song + ".ogg")
+    pygame.mixer.music.play(loops=-1)
+    
     PLATFORMS = level['plat']
     HATS = level['hats']
     SPIKES = level['spikes']
@@ -241,6 +276,8 @@ CROUCH = 0
 mov = 0
 counter = 0
 INV = []
+PAUSE = False
+pauseidx = 0
 
 ZOMBIESPEED = 6
 BONESPEED = 14
@@ -258,37 +295,80 @@ _ENEMIES = []
 DOOR = (0, 0)
 dframe = 0
 
+MUSICVOL = 0.75
+FXVOL = 0.75
+pygame.mixer.music.set_volume(MUSICVOL)
+for sound in sounds: sounds[sound].set_volume(FXVOL)
+
 IGT = 0
+hub = None
 
-with open("levels/hub") as f: hublvl = eval(f.read())
+from levels.levels import get_level
+
+hublvl = get_level("hub")
 LEVELS = []
-with open("levels/tutorial") as f: LEVELS.append(eval(f.read()))
-n = 0
-while True:
-    try:
-        with open("levels/l"+str(n)) as f:
-            LEVELS.append(eval(f.read()))
-    except IOError:
-        break
-    n += 1
-with open("levels/fin") as f: LEVELS.append(eval(f.read()))
+LEVELS.append(get_level("tutorial"))
+for i in range(5):
+    LEVELS.append(get_level("l"+str(i)))
+LEVELS.append(get_level("fin"))
 
-if __name__ == "__main__":
-    try:
-        with open("levels/"+sys.argv[-1]) as f:
-            load_level(eval(f.read()))
-            hub = False
-    except IOError:
-        load_level(hublvl)
-        hub = True
-else:
-    load_level(hublvl)
-    hub = True
+hub = True
+load_level(hublvl)
 
 def advance_frame(input_get=pygame.event.get):
     global PLATFORMS, HATS, SPIKES, SPRINGS, ENEMIES, _ENEMIES, FLAGS, CHEESE, BACK, SPAWN
     global  X, Y, x_vel, y_vel, DOOR, HAT, STATE, CROUCH, mov, hub, DIR
-    global counter, dframe, IGT, endcard
+    global counter, dframe, IGT, endcard, PAUSE, pauseidx, MUSICVOL, FXVOL
+
+    if PAUSE:
+        pygame.mixer.music.pause()
+        SCREEN.blit(drawn_pause_menu(pauseidx), (64, 64))
+        pygame.display.update();
+        for e in input_get():
+            if e.type == QUIT: quit()
+            if e.type == KEYDOWN:
+                if e.key in [K_ESCAPE, K_BACKSPACE]:
+                    PAUSE = False
+                    pauseidx = 0
+                if e.key == K_DOWN: pauseidx = (pauseidx + 1) % 4
+                if e.key == K_UP: pauseidx = (pauseidx - 1) % 4
+                if e.key in [K_SPACE, K_RETURN]:
+                    if pauseidx == 0:
+                        PAUSE = False
+                        pauseidx = 0
+
+                    if pauseidx == 3:
+                        quit()
+
+                if e.key == K_LEFT and pauseidx == 1:
+                    MUSICVOL = max(0, MUSICVOL - 0.25)
+                if e.key == K_RIGHT and pauseidx == 1:
+                    MUSICVOL = min(1, MUSICVOL + 0.25)
+                if e.key == K_LEFT and pauseidx == 2:
+                    FXVOL = max(0, FXVOL - 0.25)                    
+                if e.key == K_RIGHT and pauseidx == 2:
+                    FXVOL = min(1, FXVOL + 0.25)
+                    
+                        
+                    
+                if e.key == K_LEFT: mov = max(mov - 1, -1)
+                if e.key == K_RIGHT: mov = min(mov + 1, 1)
+                if e.key == K_DOWN: CROUCH = min(CROUCH+1, 1)
+                if e.key == K_UP: door = True
+            if e.type == KEYUP:
+                if e.key == K_LEFT: mov = min(mov+1, 1)
+                if e.key == K_RIGHT: mov = max(mov-1, -1)
+                if e.key == K_DOWN: CROUCH = max(CROUCH-1, 0)
+
+        if pauseidx == 1:
+            pygame.mixer.music.set_volume(MUSICVOL)
+        if pauseidx == 2:
+            for sound in sounds: sounds[sound].set_volume(FXVOL)
+
+        if not PAUSE:
+            pygame.mixer.music.unpause()
+        return
+    
     plats = []
     allplats = []
     for pos, dim, idx in PLATFORMS:
@@ -308,8 +388,9 @@ def advance_frame(input_get=pygame.event.get):
     jmp = 0
     door = 0
     for e in input_get():
-        if e.type == QUIT or e.type == KEYDOWN and e.key == K_ESCAPE: quit()
+        if e.type == QUIT: quit()
         if e.type == KEYDOWN:
+            if e.key == K_ESCAPE: PAUSE = True
             if e.key == K_LEFT: mov = max(mov - 1, -1)
             if e.key == K_RIGHT: mov = min(mov + 1, 1)
             if e.key == K_DOWN: CROUCH = min(CROUCH+1, 1)
@@ -513,6 +594,9 @@ def advance_frame(input_get=pygame.event.get):
 
         if not CHEESE[i][1] == 3: INV.append(CHEESE.pop(i))
         else:
+            pygame.mixer.music.load("oggs/winner.ogg")
+            pygame.mixer.music.play()
+
             n = H
             end = True
             while end:
@@ -524,20 +608,21 @@ def advance_frame(input_get=pygame.event.get):
                 SCREEN.blit(HEL64.render(str(IGT // 60000) +":"+ ("0" + str(IGT // 1000 % 60))[-2:], 0, (0, 0, 0)), (400, n + 550))
                 pygame.display.update()
                 for e in pygame.event.get():
-                    if e.type == QUIT or e.type == KEYDOWN and e.key == K_ESCAPE: quit()
+                    if e.type == QUIT: quit()
                     if e.type == KEYDOWN:
+                        if e.key == K_ESCAPE: PAUSE = True
                         if e.key == K_LEFT: mov += -1
                         if e.key == K_RIGHT: mov += 1
                         if e.key == K_DOWN: CROUCH += 1
                         if e.key == K_SPACE and n <= 0:
                             end = False
-                            load_level(hublvl)
                             hub=True
+                            load_level(hublvl)
                     if e.type == KEYUP:
                         if e.key == K_LEFT: mov -= -1
                         if e.key == K_RIGHT: mov -= 1
                         if e.key == K_DOWN: CROUCH -= 1
-    #                 door
+
     if hub:
         doorlist = [Rect((256+(i*256), 64), (64, 64)) for i in range(len(LEVELS))]
         di = hitbox.collidelist(doorlist)
@@ -568,14 +653,14 @@ def advance_frame(input_get=pygame.event.get):
                     if e.key == K_DOWN: CROUCH -= 1
     
         if hub and di != -1:
-            load_level(LEVELS[di])
             hub = False
+            load_level(LEVELS[di])
         else:
-            load_level(hublvl)
             hub = True
+            load_level(hublvl)
     # apply final calculated movement
     X += x_vel
     Y += y_vel
                 
-while True and __name__ == "__main__":
+while __name__ == "__main__":
     advance_frame()
